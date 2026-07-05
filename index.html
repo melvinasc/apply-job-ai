@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AutoApply — AI Job Agent</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: { brand: { 50:"#eef2ff",100:"#e0e7ff",200:"#c7d2fe",500:"#6366f1",600:"#4f46e5",700:"#4338ca" } },
+      fontFamily: { sans: ["Inter","system-ui","sans-serif"] }
+    }
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  .page { display:none }
+  .page.active { display:block }
+  .nav-link { @apply transition-colors }
+  .spinner { animation: spin 1s linear infinite }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .fade-in { animation: fadeIn 0.2s ease }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+  .drop-active { border-color: #4f46e5 !important; background: #eef2ff !important }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">
+
+<!-- Header -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      </div>
+      <span class="font-bold text-slate-900">AutoApply</span>
+      <span class="text-xs text-slate-400 border border-slate-200 rounded-full px-2 py-0.5">AI</span>
+    </div>
+    <nav class="hidden sm:flex items-center gap-1">
+      <button onclick="showPage('upload')" id="nav-upload" class="nav-link px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">My CV</button>
+      <button onclick="showPage('dashboard')" id="nav-dashboard" class="nav-link px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Dashboard</button>
+      <button onclick="showPage('jobs')" id="nav-jobs" class="nav-link px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Jobs</button>
+      <button onclick="showPage('applications')" id="nav-applications" class="nav-link px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Applications</button>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button onclick="triggerSearch()" class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Search Now
+      </button>
+      <a href="/logout" class="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors" title="Sign out">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      </a>
+    </div>
+  </div>
+  <!-- Mobile nav -->
+  <div class="sm:hidden flex border-t border-slate-100 text-xs">
+    <button onclick="showPage('upload')" id="mnav-upload" class="flex-1 py-2 text-slate-500 font-medium">My CV</button>
+    <button onclick="showPage('dashboard')" id="mnav-dashboard" class="flex-1 py-2 text-slate-500 font-medium">Dashboard</button>
+    <button onclick="showPage('jobs')" id="mnav-jobs" class="flex-1 py-2 text-slate-500 font-medium">Jobs</button>
+    <button onclick="showPage('applications')" id="mnav-applications" class="flex-1 py-2 text-slate-500 font-medium">Apps</button>
+  </div>
+</header>
+
+<main class="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+
+<!-- ═══ UPLOAD PAGE ════════════════════════════════════════════════════════ -->
+<div id="page-upload" class="page active fade-in max-w-2xl mx-auto space-y-8">
+  <div>
+    <h1 class="text-2xl font-bold">Upload Your CV</h1>
+    <p class="text-slate-500 mt-1">The agent reads your resume and automatically finds and prepares job applications every 12 hours.</p>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="dropzone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drop-active')" ondragleave="this.classList.remove('drop-active')" ondrop="handleDrop(event)"
+    class="border-2 border-dashed border-slate-300 rounded-2xl p-14 flex flex-col items-center gap-4 cursor-pointer hover:border-brand-400 hover:bg-slate-50 transition-all text-center">
+    <input id="file-input" type="file" accept=".pdf,.doc,.docx,.txt" class="hidden" onchange="handleFileInput(event)">
+    <div id="drop-idle">
+      <div class="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      </div>
+      <p class="font-semibold text-slate-800">Drop your CV here or click to browse</p>
+      <p class="text-sm text-slate-400 mt-1">PDF, DOCX, DOC, or TXT · Max 10MB</p>
+    </div>
+    <div id="drop-loading" class="hidden">
+      <svg class="w-10 h-10 text-brand-500 spinner mx-auto mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      <p class="font-semibold text-slate-800">Parsing your CV with AI…</p>
+      <p class="text-sm text-slate-500 mt-1">Extracting skills, experience, and target role</p>
+    </div>
+    <div id="drop-success" class="hidden">
+      <svg class="w-10 h-10 text-emerald-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <p class="font-semibold text-slate-800">CV uploaded! Starting first job search…</p>
+    </div>
+  </div>
+
+  <div id="upload-error" class="hidden flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm"></div>
+
+  <!-- Steps -->
+  <div class="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+    <h3 class="font-semibold text-slate-800 mb-4">What happens after you upload</h3>
+    <div id="steps-list" class="space-y-3 text-sm">
+      <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">1</div><div><strong class="text-slate-800">AI reads your CV</strong><br><span class="text-slate-500">Extracts skills, experience, and ideal target role</span></div></div>
+      <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">2</div><div><strong class="text-slate-800">Searches multiple job boards</strong><br><span class="text-slate-500">Remotive, Arbeitnow, Jobicy, Remote OK — and optionally LinkedIn/Indeed via JSearch</span></div></div>
+      <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">3</div><div><strong class="text-slate-800">Scores every match 0–100</strong><br><span class="text-slate-500">AI rates how well each job fits your background</span></div></div>
+      <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">4</div><div><strong class="text-slate-800">Writes a personalised cover letter</strong><br><span class="text-slate-500">Tailored to each company and role</span></div></div>
+      <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">5</div><div><strong class="text-slate-800">Repeats every 12 hours automatically</strong><br><span class="text-slate-500">New jobs appear as they're posted across all boards</span></div></div>
+    </div>
+  </div>
+
+  <!-- Existing resumes -->
+  <div id="resumes-list" class="space-y-3"></div>
+</div>
+
+<!-- ═══ DASHBOARD PAGE ══════════════════════════════════════════════════════ -->
+<div id="page-dashboard" class="page fade-in space-y-8">
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold">Dashboard</h1>
+      <p class="text-slate-500 mt-1">Your job search runs automatically every 12 hours.</p>
+    </div>
+    <button onclick="triggerSearch()" class="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Run Search Now
+    </button>
+  </div>
+
+  <div id="no-resume-msg" class="hidden text-center py-20 space-y-4">
+    <div class="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto">
+      <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    </div>
+    <h2 class="text-xl font-bold">No CV uploaded yet</h2>
+    <p class="text-slate-500">Upload your resume first so the agent can start finding jobs.</p>
+    <button onclick="showPage('upload')" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700">Upload CV</button>
+  </div>
+
+  <div id="dashboard-content" class="space-y-8">
+    <!-- Stat cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <p class="text-xs text-slate-500 font-medium">Jobs Found</p>
+        <p id="stat-jobs" class="text-3xl font-bold text-slate-900 mt-1">–</p>
+        <p id="stat-today" class="text-xs text-slate-400 mt-1">–</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <p class="text-xs text-slate-500 font-medium">Avg Match</p>
+        <p id="stat-avg" class="text-3xl font-bold text-slate-900 mt-1">–</p>
+        <p id="stat-top" class="text-xs text-slate-400 mt-1">–</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <p class="text-xs text-slate-500 font-medium">Ready to Apply</p>
+        <p id="stat-ready" class="text-3xl font-bold text-slate-900 mt-1">–</p>
+        <p id="stat-submitted" class="text-xs text-slate-400 mt-1">–</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <p class="text-xs text-slate-500 font-medium">Pending Review</p>
+        <p id="stat-pending" class="text-3xl font-bold text-slate-900 mt-1">–</p>
+        <p class="text-xs text-slate-400 mt-1">Awaiting action</p>
+      </div>
+    </div>
+
+    <!-- Scheduler + boards -->
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <h3 class="font-semibold text-slate-800">Scheduler</h3>
+          <span id="sched-badge" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">–</span>
+        </div>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-slate-500">Next run</span><span id="sched-next" class="font-medium">–</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Last run</span><span id="sched-last" class="font-medium">–</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Last results</span><span id="sched-result" class="font-medium">–</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 class="font-semibold text-slate-800 mb-4">Jobs by Board</h3>
+        <div id="boards-chart" class="space-y-3 text-sm"></div>
+      </div>
+    </div>
+
+    <!-- Top matches -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-slate-800">Top Matches</h3>
+        <button onclick="showPage('jobs')" class="text-xs text-brand-600 hover:underline">View all →</button>
+      </div>
+      <div id="top-matches" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ JOBS PAGE ═══════════════════════════════════════════════════════════ -->
+<div id="page-jobs" class="page fade-in space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold">Matched Jobs</h1>
+    <p id="jobs-subtitle" class="text-slate-500 mt-1">Loading…</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-3 items-center text-sm">
+    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+    <div id="status-filters" class="flex gap-1">
+      <button onclick="setJobFilter('status','all')" data-filter="status" data-val="all" class="filter-btn active-filter px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white">All</button>
+      <button onclick="setJobFilter('status','pending')" data-filter="status" data-val="pending" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Pending</button>
+      <button onclick="setJobFilter('status','applied')" data-filter="status" data-val="applied" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Applied</button>
+      <button onclick="setJobFilter('status','skipped')" data-filter="status" data-val="skipped" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Skipped</button>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="text-xs text-slate-500">Min match:</span>
+      <input type="range" min="0" max="90" step="5" value="50" id="score-filter" oninput="setScoreFilter(this.value)" class="w-20 accent-brand-600">
+      <span id="score-label" class="text-xs font-semibold text-slate-700 w-8">50%</span>
+    </div>
+  </div>
+
+  <div id="jobs-loading" class="flex justify-center py-20">
+    <svg class="w-7 h-7 text-brand-500 spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+  </div>
+  <div id="jobs-empty" class="hidden text-center py-20 text-slate-500">
+    <svg class="w-10 h-10 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    No jobs found. Try lowering the match threshold or run a new search.
+  </div>
+  <div id="jobs-list" class="space-y-3"></div>
+</div>
+
+<!-- ═══ APPLICATIONS PAGE ══════════════════════════════════════════════════ -->
+<div id="page-applications" class="page fade-in space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold">Applications</h1>
+    <p class="text-slate-500 mt-1">Review and edit your AI-written cover letters, then open the job page to apply.</p>
+  </div>
+
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-white rounded-xl border border-slate-200 p-4 text-center"><p id="app-stat-pending" class="text-2xl font-bold text-amber-600">–</p><p class="text-xs text-slate-500 mt-1">Pending</p></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4 text-center"><p id="app-stat-ready" class="text-2xl font-bold text-brand-600">–</p><p class="text-xs text-slate-500 mt-1">Ready</p></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4 text-center"><p id="app-stat-submitted" class="text-2xl font-bold text-emerald-600">–</p><p class="text-xs text-slate-500 mt-1">Submitted</p></div>
+  </div>
+
+  <div class="flex gap-1" id="app-filters">
+    <button onclick="setAppFilter('all')" class="app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white">All</button>
+    <button onclick="setAppFilter('draft')" class="app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Draft</button>
+    <button onclick="setAppFilter('ready')" class="app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Ready</button>
+    <button onclick="setAppFilter('submitted')" class="app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600">Submitted</button>
+  </div>
+
+  <div id="apps-loading" class="flex justify-center py-20">
+    <svg class="w-7 h-7 text-brand-500 spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+  </div>
+  <div id="apps-empty" class="hidden text-center py-20 text-slate-500">
+    <svg class="w-10 h-10 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    No applications yet. Go to Jobs and click "Prepare" on a matched job.
+  </div>
+  <div id="apps-list" class="space-y-4"></div>
+</div>
+
+</main>
+
+<footer class="border-t border-slate-100 py-3 text-center text-xs text-slate-400">
+  AutoApply · AI Job Agent · Searches every 12 hours automatically
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let state = { page: 'upload', resumeId: null, jobStatus: 'all', minScore: 50, appFilter: 'all', jobs: [], apps: [] };
+
+// ── Nav ────────────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('[id^="nav-"],[id^="mnav-"]').forEach(b => {
+    b.classList.remove('bg-brand-50','text-brand-700','text-brand-700');
+    b.classList.add('text-slate-600');
+  });
+  ['nav-'+name,'mnav-'+name].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.classList.remove('text-slate-600'); el.classList.add('bg-brand-50','text-brand-700'); }
+  });
+  state.page = name;
+  if(name === 'upload') loadResumes();
+  if(name === 'dashboard') loadDashboard();
+  if(name === 'jobs') loadJobs();
+  if(name === 'applications') loadApps();
+}
+
+// ── API helpers ────────────────────────────────────────────────────────────────
+async function api(path, opts={}) {
+  const r = await fetch('/api' + path, { headers: {'Content-Type':'application/json'}, ...opts });
+  if(!r.ok) { const e = await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.statusText); }
+  return r.json();
+}
+
+// ── HTML escaping — apply to ALL untrusted data before inserting into innerHTML ─
+function esc(s) {
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drop-active');
+  const file = e.dataTransfer.files[0];
+  if(file) uploadFile(file);
+}
+function handleFileInput(e) { const f = e.target.files[0]; if(f) uploadFile(f); }
+
+async function uploadFile(file) {
+  const errEl = document.getElementById('upload-error');
+  errEl.classList.add('hidden');
+  document.getElementById('drop-idle').classList.add('hidden');
+  document.getElementById('drop-loading').classList.remove('hidden');
+  document.getElementById('drop-success').classList.add('hidden');
+  try {
+    const form = new FormData(); form.append('file', file);
+    const res = await fetch('/api/resumes', { method:'POST', body:form });
+    if(!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    const data = await res.json();
+    state.resumeId = data.id;
+    document.getElementById('drop-loading').classList.add('hidden');
+    document.getElementById('drop-success').classList.remove('hidden');
+    loadResumes();
+    setTimeout(() => showPage('dashboard'), 1800);
+  } catch(e) {
+    document.getElementById('drop-idle').classList.remove('hidden');
+    document.getElementById('drop-loading').classList.add('hidden');
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function loadResumes() {
+  const resumes = await api('/resumes').catch(()=>[]);
+  const active = resumes.find(r=>r.active);
+  if(active) state.resumeId = active.id;
+  const el = document.getElementById('resumes-list');
+  if(!resumes.length) { el.innerHTML=''; return; }
+  el.innerHTML = '<h3 class="font-semibold text-slate-800">Your CVs</h3>' + resumes.map(r => {
+    const p = r.parsed_data ? JSON.parse(r.parsed_data) : {};
+    const skills = (p.skills||[]).slice(0,7);
+    return `<div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <p class="font-medium text-slate-800 truncate">${esc(r.original_name)}</p>
+            ${r.active ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Active</span>' : ''}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">${new Date(r.created_at).toLocaleDateString()} · ${esc(p.target_title||'—')}</p>
+        </div>
+        <button onclick="deleteResume('${esc(r.id)}')" class="text-slate-400 hover:text-red-500 p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+      ${skills.length ? `<div class="mt-3 flex flex-wrap gap-1.5">${skills.map(s=>`<span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">${esc(s)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function deleteResume(id) {
+  if(!confirm('Delete this resume and all associated jobs/applications?')) return;
+  await api('/resumes/'+id, {method:'DELETE'});
+  loadResumes();
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const rid = state.resumeId;
+  const data = await api('/dashboard'+(rid?'?resume_id='+rid:'')).catch(()=>null);
+  if(!data || !rid) {
+    document.getElementById('no-resume-msg').classList.remove('hidden');
+    document.getElementById('dashboard-content').classList.add('hidden');
+    return;
+  }
+  document.getElementById('no-resume-msg').classList.add('hidden');
+  document.getElementById('dashboard-content').classList.remove('hidden');
+
+  const j=data.jobs||{}, a=data.apps||{};
+  document.getElementById('stat-jobs').textContent = j.total||0;
+  document.getElementById('stat-today').textContent = `${data.todayNew||0} new today`;
+  document.getElementById('stat-avg').textContent = j.avg_score ? j.avg_score+'%' : '–';
+  document.getElementById('stat-top').textContent = j.top_score ? `Top: ${Math.round(j.top_score)}%` : '–';
+  document.getElementById('stat-ready').textContent = a.ready||0;
+  document.getElementById('stat-submitted').textContent = `${a.submitted||0} submitted`;
+  document.getElementById('stat-pending').textContent = j.pending||0;
+
+  const sched = await api('/scheduler').catch(()=>null);
+  if(sched) {
+    document.getElementById('sched-badge').textContent = sched.running ? '🔄 Running' : '⏰ Scheduled';
+    document.getElementById('sched-next').textContent = new Date(sched.nextRun).toLocaleString();
+    const last = sched.history?.[0];
+    document.getElementById('sched-last').textContent = last ? new Date(last.started_at).toLocaleString() : '–';
+    document.getElementById('sched-result').textContent = last ? `${last.jobs_found} found · ${last.jobs_matched} matched` : '–';
+  }
+
+  document.getElementById('boards-chart').innerHTML = (data.boards||[]).map((b,i,arr)=>`
+    <div class="flex items-center gap-3">
+      <span class="text-slate-700 w-24 flex-shrink-0 truncate text-xs">${esc(b.board)}</span>
+      <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div class="h-2 bg-brand-500 rounded-full" style="width:${Math.round(b.n/(arr[0].n||1)*100)}%"></div>
+      </div>
+      <span class="text-slate-600 font-medium w-6 text-right text-xs">${b.n}</span>
+    </div>`).join('') || '<p class="text-xs text-slate-400">No data yet</p>';
+
+  document.getElementById('top-matches').innerHTML = (data.top||[]).map(j=>`
+    <div class="flex items-start justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-800 truncate">${esc(j.title)}</p>
+        <p class="text-xs text-slate-500">${esc(j.company)} · ${esc(j.location)}</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${j.match_score>=80?'bg-emerald-100 text-emerald-700':j.match_score>=65?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-600'}">${Math.round(j.match_score)}%</span>
+        <a href="${esc(j.url)}" target="_blank" class="text-slate-400 hover:text-brand-600">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        </a>
+      </div>
+    </div>`).join('') || '<p class="text-sm text-slate-400 text-center py-4">No jobs found yet. Run a search.</p>';
+}
+
+// ── Jobs ───────────────────────────────────────────────────────────────────────
+function setJobFilter(type, val) {
+  state[type === 'status' ? 'jobStatus' : type] = val;
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    if(b.dataset.filter===type) { b.className = b.dataset.val===val ? 'filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white' : 'filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600'; }
+  });
+  loadJobs();
+}
+function setScoreFilter(val) { state.minScore=Number(val); document.getElementById('score-label').textContent=val+'%'; loadJobs(); }
+
+async function loadJobs() {
+  document.getElementById('jobs-loading').classList.remove('hidden');
+  document.getElementById('jobs-list').innerHTML='';
+  document.getElementById('jobs-empty').classList.add('hidden');
+  const params = new URLSearchParams({ min_score: state.minScore });
+  if(state.resumeId) params.set('resume_id', state.resumeId);
+  if(state.jobStatus !== 'all') params.set('status', state.jobStatus);
+  const jobs = await api('/jobs?'+params).catch(()=>[]);
+  document.getElementById('jobs-loading').classList.add('hidden');
+  document.getElementById('jobs-subtitle').textContent = `${jobs.length} jobs found · Review each match and click Apply to open the job page.`;
+  if(!jobs.length) { document.getElementById('jobs-empty').classList.remove('hidden'); return; }
+  document.getElementById('jobs-list').innerHTML = jobs.map(j=>renderJobCard(j)).join('');
+}
+
+function renderJobCard(j) {
+  const score = Math.round(j.match_score||0);
+  const scoreClass = score>=80?'bg-emerald-100 text-emerald-700':score>=65?'bg-blue-100 text-blue-700':score>=50?'bg-amber-100 text-amber-700':'bg-slate-100 text-slate-600';
+  const hasCL = j.cover_letter;
+  const id = esc(j.id);
+  // URL goes in a data attribute — never inline in onclick — to avoid injection via job-board URLs
+  return `<div id="job-${id}" data-url="${esc(j.url)}" class="bg-white rounded-xl border border-slate-200 overflow-hidden ${j.status==='skipped'?'opacity-50':''}">
+    <div class="p-4 sm:p-5">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="font-semibold text-slate-900">${esc(j.title)}</h3>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${scoreClass}">${score}% match</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${esc(j.board)}</span>
+            ${j.status==='applied'?'<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ Applied</span>':''}
+            ${j.status==='skipped'?'<span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Skipped</span>':''}
+          </div>
+          <div class="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
+            <span>🏢 ${esc(j.company)}</span><span>📍 ${esc(j.location||'Remote')}</span>
+          </div>
+          ${j.match_reason?`<p class="text-xs text-slate-400 mt-2 italic">"${esc(j.match_reason)}"</p>`:''}
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <a href="${esc(j.url)}" target="_blank" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-600 border border-slate-200 hover:bg-slate-50">
+            View <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          ${j.status==='pending' ? `
+            <button onclick="skipJob('${id}')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100" title="Skip">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/></svg>
+            </button>
+            ${hasCL
+              ? `<button onclick="applyJob('${id}')" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 text-white rounded-lg text-xs font-medium hover:bg-brand-700">✓ Apply</button>`
+              : `<button onclick="prepareJob('${id}')" class="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50" id="prep-${id}">📝 Prepare</button>`
+            }` : ''}
+        </div>
+      </div>
+      ${hasCL?`<button onclick="toggleCL('${id}')" class="mt-3 text-xs text-brand-600 hover:underline">View cover letter ▼</button>`:''}
+    </div>
+    <div id="cl-${id}" class="hidden border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">AI Cover Letter</p>
+      <div class="bg-white rounded-lg border border-slate-200 p-4">
+        <p class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">${esc(j.cover_letter||'')}</p>
+      </div>
+      ${j.status==='pending'?`<button onclick="applyJob('${id}')" class="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white rounded-lg text-xs font-medium hover:bg-brand-700">✓ Mark Applied & Open Job</button>`:''}
+    </div>
+  </div>`;
+}
+
+function toggleCL(id) {
+  const el = document.getElementById('cl-'+id);
+  el.classList.toggle('hidden');
+}
+
+async function prepareJob(id) {
+  const btn = document.getElementById('prep-'+id);
+  btn.textContent = '✍️ Writing…'; btn.disabled=true;
+  try {
+    await api('/jobs/'+id+'/prepare', {method:'POST'});
+    loadJobs();
+  } catch(e) { alert('Error: '+e.message); btn.textContent='📝 Prepare'; btn.disabled=false; }
+}
+
+async function applyJob(id) {
+  await api('/jobs/'+id+'/apply', {method:'POST'});
+  // URL is stored safely in the card's data-url attribute — never interpolated into onclick
+  const url = document.getElementById('job-'+id)?.dataset?.url;
+  if(url) window.open(url, '_blank');
+  loadJobs();
+}
+
+async function skipJob(id) {
+  await api('/jobs/'+id+'/skip', {method:'POST'});
+  loadJobs();
+}
+
+// ── Applications ───────────────────────────────────────────────────────────────
+function setAppFilter(val) {
+  state.appFilter = val;
+  document.querySelectorAll('.app-filter-btn').forEach(b => {
+    const active = b.textContent.toLowerCase()===val;
+    b.className = active ? 'app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white' : 'app-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600';
+  });
+  loadApps();
+}
+
+async function loadApps() {
+  document.getElementById('apps-loading').classList.remove('hidden');
+  document.getElementById('apps-list').innerHTML='';
+  document.getElementById('apps-empty').classList.add('hidden');
+  const params = new URLSearchParams();
+  if(state.resumeId) params.set('resume_id', state.resumeId);
+  if(state.appFilter !== 'all') params.set('status', state.appFilter);
+  const apps = await api('/applications?'+params).catch(()=>[]);
+  document.getElementById('apps-loading').classList.add('hidden');
+  document.getElementById('app-stat-pending').textContent = apps.filter(a=>a.status!=='submitted').length;
+  document.getElementById('app-stat-ready').textContent = apps.filter(a=>a.status==='ready').length;
+  document.getElementById('app-stat-submitted').textContent = apps.filter(a=>a.status==='submitted').length;
+  if(!apps.length) { document.getElementById('apps-empty').classList.remove('hidden'); return; }
+  document.getElementById('apps-list').innerHTML = apps.map(a=>renderAppCard(a)).join('');
+}
+
+function renderAppCard(a) {
+  const statusColors = { draft:'bg-amber-100 text-amber-700', ready:'bg-blue-100 text-blue-700', submitted:'bg-emerald-100 text-emerald-700' };
+  const id = esc(a.id);
+  return `<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="p-4 sm:p-5">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="font-semibold text-slate-900">${esc(a.title)}</h3>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[a.status]||'bg-slate-100 text-slate-600'}">${esc(a.status)}</span>
+            ${a.match_score?`<span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${Math.round(a.match_score)}% match</span>`:''}
+          </div>
+          <div class="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
+            <span>🏢 ${esc(a.company)}</span><span>📍 ${esc(a.location||'Remote')}</span><span>${esc(a.board)}</span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <a href="${esc(a.url)}" target="_blank" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-600 border border-slate-200 hover:bg-slate-50">
+            Job <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          ${a.cover_letter?`<button onclick="openEditCL('${id}')" class="px-2.5 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-600 hover:bg-slate-50">✏️ Edit</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${a.cover_letter?`
+    <div class="border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cover Letter</p>
+        <div id="edit-actions-${id}" class="hidden flex gap-2">
+          <button onclick="saveCL('${id}')" class="px-2.5 py-1 bg-brand-600 text-white rounded-lg text-xs">Save</button>
+          <button onclick="cancelEdit('${id}')" class="px-2.5 py-1 border border-slate-200 rounded-lg text-xs text-slate-600">Cancel</button>
+        </div>
+      </div>
+      <div id="cl-view-${id}" class="bg-white rounded-lg border border-slate-200 p-4">
+        <p class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">${esc(a.cover_letter)}</p>
+      </div>
+      <textarea id="cl-edit-${id}" class="hidden w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500" rows="12">${esc(a.cover_letter)}</textarea>
+      ${a.submitted_at?`<p class="text-xs text-emerald-600 mt-2">Submitted ${new Date(a.submitted_at).toLocaleDateString()}</p>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+function openEditCL(id) {
+  document.getElementById('cl-view-'+id).classList.add('hidden');
+  document.getElementById('cl-edit-'+id).classList.remove('hidden');
+  document.getElementById('edit-actions-'+id).classList.remove('hidden');
+}
+function cancelEdit(id) {
+  document.getElementById('cl-view-'+id).classList.remove('hidden');
+  document.getElementById('cl-edit-'+id).classList.add('hidden');
+  document.getElementById('edit-actions-'+id).classList.add('hidden');
+}
+async function saveCL(id) {
+  const text = document.getElementById('cl-edit-'+id).value;
+  await api('/applications/'+id+'/cover-letter', {method:'PUT', body:JSON.stringify({cover_letter:text})});
+  loadApps();
+}
+
+// ── Scheduler trigger ─────────────────────────────────────────────────────────
+async function triggerSearch() {
+  if(!state.resumeId) { showPage('upload'); return; }
+  try {
+    await api('/scheduler/trigger', {method:'POST', body:JSON.stringify({resume_id:state.resumeId})});
+    alert('Job search started! Results appear in the Jobs tab in a few minutes.');
+    if(state.page==='dashboard') loadDashboard();
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  const resumes = await api('/resumes').catch(()=>[]);
+  const active = resumes.find(r=>r.active);
+  if(active) { state.resumeId = active.id; showPage('dashboard'); }
+  else showPage('upload');
+  // Poll dashboard every 30s if on that page
+  setInterval(()=>{ if(state.page==='dashboard') loadDashboard(); }, 30000);
+}
+init();
+</script>
+</body>
+</html>
