@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pursuit — AI Job Application Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth.js/1.6.0/mammoth.browser.min.js"></script>
+<style>
+  :root{
+    --ink:#232320;
+    --ink-soft:#5c5b54;
+    --paper:#ffffff;
+    --paper-2:#f7f5f1;
+    --line:#e7e3da;
+    --accent:#a68a5b;
+    --accent-soft:#e9e0cf;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{background:var(--paper-2);}
+  body{
+    margin:0;
+    background:var(--paper-2);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding:0 0 100px;
+  }
+  .sheet{
+    max-width:840px;
+    margin:0 auto;
+    background:var(--paper);
+  }
+  header.masthead{
+    padding:72px 48px 40px;
+    text-align:center;
+    border-bottom:1px solid var(--line);
+  }
+  header.masthead .eyebrow{
+    font-family:var(--sans);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex; justify-content:center; gap:16px;
+  }
+  header.masthead .eyebrow span:last-child{color:var(--ink-soft); font-weight:400; letter-spacing:0.05em;}
+  header.masthead h1{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:44px;
+    margin:18px 0 14px;
+    letter-spacing:0.01em;
+  }
+  header.masthead h1 em{
+    font-style:italic;
+    color:var(--accent);
+  }
+  header.masthead p{
+    font-family:var(--sans);
+    font-size:15px;
+    color:var(--ink-soft);
+    margin:0 auto;
+    max-width:440px;
+    line-height:1.6;
+  }
+  .body-grid{padding:48px 48px 40px;}
+  .stage{
+    display:none;
+    animation:reveal .35s ease;
+  }
+  .stage.active{display:block;}
+  @keyframes reveal{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  .field-label{
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--accent);
+    margin-bottom:14px;
+    display:block;
+  }
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    background:var(--paper-2);
+    padding:48px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent);
+    background:#fff;
+  }
+  .dropzone .icon{
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.08em;
+    margin-bottom:14px;
+    color:var(--accent);
+    border:1px solid var(--accent-soft);
+    border-radius:50%;
+    width:44px; height:44px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 14px;
+  }
+  .dropzone .sub{font-size:12.5px; color:var(--ink-soft); margin-top:6px;}
+  input[type=file]{display:none;}
+
+  textarea, .paste-box{
+    width:100%;
+    min-height:220px;
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.6;
+    padding:16px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:#fff;
+    resize:vertical;
+    color:var(--ink);
+  }
+  textarea:focus{outline:none; border-color:var(--accent);}
+
+  .btn{
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:.02em;
+    padding:14px 30px;
+    border-radius:999px;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    cursor:pointer;
+    transition:.18s;
+  }
+  .btn:hover{background:var(--accent);}
+  .btn:disabled{background:#d8d5cc; color:#999; cursor:not-allowed;}
+  .btn.ghost{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  .btn.ghost:hover{background:var(--paper-2); border-color:var(--ink);}
+  .row{display:flex; gap:12px; margin-top:24px; flex-wrap:wrap; align-items:center;}
+  .row.between{justify-content:space-between;}
+
+  .status-line{
+    font-family:var(--sans);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:14px;
+    min-height:16px;
+  }
+  .progress-track{
+    height:3px; background:var(--line); margin-top:8px; overflow:hidden; border-radius:2px;
+  }
+  .progress-fill{
+    height:100%; background:var(--accent); width:0%; transition:width .2s;
+  }
+
+  .stamp-badge{
+    display:inline-block;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    color:var(--accent);
+    margin-bottom:16px;
+  }
+
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:28px;
+    margin-bottom:20px;
+  }
+  .card h3{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:20px;
+    margin:0 0 16px;
+  }
+  .match-score{
+    display:flex; align-items:baseline; gap:10px; margin-bottom:10px;
+  }
+  .match-score .num{font-family:var(--serif); font-weight:600; font-size:48px; color:var(--accent);}
+  .match-score .label{font-family:var(--sans); font-size:12.5px; color:var(--ink-soft);}
+  ul.plain{margin:0; padding-left:18px; font-size:14px; line-height:1.7; color:var(--ink-soft);}
+  .copy-block{
+    position:relative;
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px;
+    font-size:14px;
+    line-height:1.7;
+    white-space:pre-wrap;
+    font-family:var(--sans);
+  }
+  .copy-btn{
+    position:absolute; top:12px; right:12px;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    border-radius:999px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .copy-btn:hover{background:var(--accent);}
+
+  .safety-note{
+    font-family:var(--sans);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    border-top:1px solid var(--line);
+    padding-top:18px;
+    margin-top:32px;
+    line-height:1.7;
+  }
+  .safety-note strong{color:var(--ink);}
+  footer.credit{
+    text-align:center;
+    font-family:var(--sans);
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:28px;
+    padding-bottom:20px;
+  }
+  .file-tag{
+    font-family:var(--sans);
+    font-size:12.5px;
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 16px;
+    margin-top:14px;
+  }
+  .file-tag button{
+    border:none; background:none; color:var(--accent); cursor:pointer; font-family:var(--sans); font-weight:600;
+  }
+  .step-track{
+    display:flex; gap:0; margin-bottom:36px; font-family:var(--sans); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em;
+  }
+  .step-track div{
+    flex:1; text-align:center; padding-bottom:14px; border-bottom:2px solid var(--line); color:#b5b2a8;
+    position:relative;
+  }
+  .step-track div.done{border-color:var(--accent-soft); color:var(--accent);}
+  .step-track div.now{border-color:var(--accent); color:var(--ink);}
+
+  .job-card{
+    background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px; margin-top:14px;
+    cursor:pointer; transition:.15s;
+  }
+  .job-card:hover{border-color:var(--accent); box-shadow:0 2px 12px rgba(0,0,0,0.04);}
+  .job-card.selected{border-color:var(--accent); background:#fdfbf7;}
+  .job-card .jc-top{display:flex; justify-content:space-between; gap:10px; font-family:var(--sans); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent);}
+  .job-card h4{margin:8px 0 2px; font-family:var(--serif); font-weight:600; font-size:18px;}
+  .job-card .jc-meta{font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;}
+  .job-card .jc-desc{font-size:13px; color:var(--ink-soft); line-height:1.5; max-height:54px; overflow:hidden;}
+  .job-card a{font-family:var(--sans); font-weight:600; font-size:12px; color:var(--accent); text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="eyebrow"><span>Pursuit</span><span id="clock"></span></div>
+    <h1>Apply for jobs<br>with a little <em>help</em></h1>
+    <p>Upload your CV, add a job, and get help writing your application — no bots, no blocked accounts.</p>
+  </header>
+
+  <div class="body-grid">
+
+    <div class="step-track">
+      <div id="step1" class="now">1. CV</div>
+      <div id="step2">2. Job Ad</div>
+      <div id="step3">3. Model</div>
+      <div id="step4">4. Result</div>
+    </div>
+
+    <!-- STAGE 1: CV upload -->
+    <div class="stage active" id="stage-cv">
+      <span class="field-label">Step 1 — Your CV</span>
+      <div class="dropzone" id="dropzone">
+        <div class="icon">CV</div>
+        <div>Drop your CV here, or click to pick a file</div>
+        <div class="sub">PDF or Word. It stays in your browser — nothing is sent anywhere.</div>
+        <input type="file" id="cvInput" accept=".pdf,.docx">
+      </div>
+      <div id="cvTag"></div>
+      <div class="row">
+        <button class="btn" id="toStep2" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- STAGE 2: Job search + paste -->
+    <div class="stage" id="stage-job">
+      <span class="field-label">Step 2 — Find or paste a job</span>
+
+      <div class="row" style="margin-top:0;">
+        <input type="text" id="searchKeywords" class="paste-box" style="min-height:auto; padding:12px 14px;" placeholder="e.g. Frontend Developer">
+        <input type="text" id="searchLocation" class="paste-box" style="min-height:auto; padding:12px 14px; max-width:220px;" placeholder="Sydney NSW">
+        <button class="btn" id="runSearch">Search jobs</button>
+      </div>
+      <div class="status-line" id="searchStatus"></div>
+      <div id="searchResults"></div>
+
+      <p style="font-size:12px; color:#777; font-family:var(--mono); margin-top:26px;">
+        This search uses Adzuna, Jooble and Arbeitnow (free, open job sites). Seek, LinkedIn and Indeed don't let apps
+        search them directly, so instead of scraping their pages — which can get accounts blocked — you can paste
+        one of their job posts below by hand.
+      </p>
+
+      <span class="field-label" style="margin-top:8px;">Or paste a job by hand</span>
+      <textarea id="jobText" placeholder="Paste the full job description here (title, company, responsibilities, requirements)..."></textarea>
+
+      <div class="row between">
+        <button class="btn ghost" id="backTo1">← Back</button>
+        <button class="btn" id="toStep3" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- STAGE 3: Model load -->
+    <div class="stage" id="stage-model">
+      <span class="field-label">Step 3 — Load the free AI model</span>
+      <p style="font-size:13px; color:#555; max-width:560px;">
+        This runs on your own device, not on a server. No account, no key, no data leaving your browser.
+        The first time you use it, the model has to download (a few hundred MB). After that it's saved for next time.
+      </p>
+      <div class="row" style="margin-top:8px;">
+        <select id="modelPicker" class="btn ghost" style="padding:13px 16px;">
+          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B (balanced — recommended)</option>
+          <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5 mini (faster, smaller)</option>
+          <option value="Qwen2.5-3B-Instruct-q4f16_1-MLC">Qwen2.5 3B (alternative)</option>
+        </select>
+        <button class="btn" id="loadModel">Load model</button>
+      </div>
+      <div class="status-line" id="modelStatus">Model not loaded yet.</div>
+      <div class="progress-track"><div class="progress-fill" id="modelProgress"></div></div>
+      <div class="row between">
+        <button class="btn ghost" id="backTo2">← Back</button>
+        <button class="btn" id="toStep4" disabled>Generate dossier →</button>
+      </div>
+    </div>
+
+    <!-- STAGE 4: Results -->
+    <div class="stage" id="stage-results">
+      <span class="field-label">Step 4 — Your application</span>
+      <div id="resultsArea">
+        <div class="status-line" id="genStatus">Preparing...</div>
+        <div class="progress-track"><div class="progress-fill" id="genProgress"></div></div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="backTo3">← Back</button>
+        <button class="btn ghost" id="restart">Start a new application</button>
+      </div>
+    </div>
+
+    <div class="safety-note">
+      <strong>Why this is safe to use —</strong> Pursuit never scrapes job sites, never logs into your accounts, and never sends anything on your behalf. It only reads the CV you give it and the job text you paste, then writes something for <em>you</em> to check and send yourself. This is the safest way to avoid getting blocked or breaking a site's rules.
+    </div>
+  </div>
+</div>
+<footer class="credit">Runs fully client-side · your CV never leaves your browser</footer>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+const state = { cvText:"", jobText:"", engine:null, modelLoaded:false, selectedJob:null };
+
+// Point this at your deployed Vercel function, e.g. "https://your-project.vercel.app/api/search"
+const SEARCH_API_BASE = "/api/search"; // works automatically if frontend is also hosted on Vercel; otherwise replace with full URL
+
+// clock
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleString(); }, 1000);
+
+// ---------- Stage navigation ----------
+function goTo(stage){
+  document.querySelectorAll('.stage').forEach(s=>s.classList.remove('active'));
+  document.getElementById(stage).classList.add('active');
+  const map = {'stage-cv':1,'stage-job':2,'stage-model':3,'stage-results':4};
+  const n = map[stage];
+  for(let i=1;i<=4;i++){
+    const el = document.getElementById('step'+i);
+    el.classList.remove('now','done');
+    if(i<n) el.classList.add('done');
+    if(i===n) el.classList.add('now');
+  }
+}
+document.getElementById('backTo1').onclick = ()=>goTo('stage-cv');
+document.getElementById('toStep3').onclick = ()=>{ state.jobText = document.getElementById('jobText').value; goTo('stage-model'); };
+document.getElementById('backTo2').onclick = ()=>goTo('stage-job');
+document.getElementById('backTo3').onclick = ()=>goTo('stage-model');
+document.getElementById('toStep4').onclick = ()=>{ goTo('stage-results'); runGeneration(); };
+document.getElementById('restart').onclick = ()=>location.reload();
+
+document.getElementById('jobText').addEventListener('input', e=>{
+  document.getElementById('toStep3').disabled = e.target.value.trim().length < 40;
+  if(e.target.value.trim().length>40) state.selectedJob = null; // manual paste overrides a selected card
+});
+
+// override toStep2 to also auto-suggest a search
+document.getElementById('toStep2').onclick = ()=>{
+  goTo('stage-job');
+  autoSuggestSearch();
+};
+
+function autoSuggestSearch(){
+  const kwEl = document.getElementById('searchKeywords');
+  if(kwEl.value.trim()) return; // don't override if user already typed something
+  const lines = state.cvText.split('\n').map(l=>l.trim()).filter(Boolean);
+  const guess = lines.slice(0,5).find(l=>l.length<60) || lines[0] || '';
+  kwEl.value = guess;
+}
+
+// ---------- Job search ----------
+document.getElementById('runSearch').onclick = async ()=>{
+  const keywords = document.getElementById('searchKeywords').value.trim();
+  const location = document.getElementById('searchLocation').value.trim() || 'Australia';
+  const statusEl = document.getElementById('searchStatus');
+  const resultsEl = document.getElementById('searchResults');
+  if(!keywords){ statusEl.textContent = "Enter a keyword or job title first."; return; }
+  statusEl.textContent = "Searching Adzuna, Jooble & Arbeitnow...";
+  resultsEl.innerHTML = "";
+  try{
+    const url = `${SEARCH_API_BASE}?keywords=${encodeURIComponent(keywords)}&location=${encodeURIComponent(location)}&country=au`;
+    const r = await fetch(url);
+    const data = await r.json();
+    if(!r.ok){ statusEl.textContent = "Search failed: " + (data.error||r.status); return; }
+    statusEl.textContent = `${data.count} results` + (data.errors ? ` (some sources unavailable: ${data.errors.join('; ')})` : '');
+    if(data.count === 0){
+      resultsEl.innerHTML = `<div class="status-line">No results — try broader keywords, or paste a job ad manually below.</div>`;
+      return;
+    }
+    resultsEl.innerHTML = data.results.map((job,idx)=>`
+      <div class="job-card" data-idx="${idx}">
+        <div class="jc-top"><span>${job.source}</span><span>${job.posted ? new Date(job.posted).toLocaleDateString() : ''}</span></div>
+        <h4>${escapeHtml(job.title)}</h4>
+        <div class="jc-meta">${escapeHtml(job.company)} · ${escapeHtml(job.location)}${job.salary ? ' · '+escapeHtml(job.salary):''}</div>
+        <div class="jc-desc">${escapeHtml(job.description)}</div>
+        <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+          <a href="${job.url}" target="_blank" rel="noopener">View original listing ↗</a>
+          <span style="font-family:var(--mono); font-size:10px; color:#999;">click card to select</span>
+        </div>
+      </div>
+    `).join('');
+    state._lastResults = data.results;
+    resultsEl.querySelectorAll('.job-card').forEach(card=>{
+      card.onclick = ()=>{
+        resultsEl.querySelectorAll('.job-card').forEach(c=>c.classList.remove('selected'));
+        card.classList.add('selected');
+        const job = state._lastResults[card.dataset.idx];
+        state.selectedJob = job;
+        state.jobText = `Title: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location}\n\n${job.description}`;
+        document.getElementById('jobText').value = state.jobText;
+        document.getElementById('toStep3').disabled = false;
+      };
+    });
+  }catch(err){
+    statusEl.textContent = "Search error: " + err.message + " (is the /api/search function deployed on Vercel?)";
+  }
+};
+
+// ---------- CV upload ----------
+const dropzone = document.getElementById('dropzone');
+const cvInput = document.getElementById('cvInput');
+dropzone.onclick = ()=>cvInput.click();
+['dragover','dragleave','drop'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{
+    e.preventDefault();
+    dropzone.classList.toggle('drag', evt==='dragover');
+  });
+});
+dropzone.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+cvInput.addEventListener('change', e=>{
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+async function handleFile(file){
+  const tagEl = document.getElementById('cvTag');
+  tagEl.innerHTML = `<div class="file-tag">Reading ${file.name}...</div>`;
+  try{
+    let text = "";
+    if(file.name.toLowerCase().endsWith('.pdf')){
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+      for(let i=1;i<=pdf.numPages;i++){
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it=>it.str).join(' ') + '\n';
+      }
+    } else if(file.name.toLowerCase().endsWith('.docx')){
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({arrayBuffer:buf});
+      text = result.value;
+    } else {
+      throw new Error("Unsupported file type");
+    }
+    state.cvText = text.trim();
+    tagEl.innerHTML = `<div class="file-tag">Read — ${file.name} (${state.cvText.length} characters) <button id="clearCv">remove</button></div>`;
+    document.getElementById('clearCv').onclick = ()=>{ state.cvText=""; tagEl.innerHTML=""; document.getElementById('toStep2').disabled=true; };
+    document.getElementById('toStep2').disabled = state.cvText.length < 50;
+  }catch(err){
+    tagEl.innerHTML = `<div class="file-tag">Could not read file: ${err.message}</div>`;
+  }
+}
+
+// ---------- Model loading ----------
+document.getElementById('loadModel').onclick = async ()=>{
+  const modelId = document.getElementById('modelPicker').value;
+  const statusEl = document.getElementById('modelStatus');
+  const progEl = document.getElementById('modelProgress');
+  document.getElementById('loadModel').disabled = true;
+  try{
+    state.engine = await webllm.CreateMLCEngine(modelId, {
+      initProgressCallback: (p)=>{
+        statusEl.textContent = p.text;
+        const pct = Math.round((p.progress||0)*100);
+        progEl.style.width = pct + '%';
+      }
+    });
+    state.modelLoaded = true;
+    statusEl.textContent = "Model ready.";
+    document.getElementById('toStep4').disabled = false;
+  }catch(err){
+    statusEl.textContent = "Failed to load: " + err.message + " (try a smaller model or check WebGPU support in your browser)";
+    document.getElementById('loadModel').disabled = false;
+  }
+};
+
+// ---------- Generation ----------
+async function chat(prompt){
+  const reply = await state.engine.chat.completions.create({
+    messages:[
+      {role:"system", content:"You are a precise, honest career assistant. Never invent facts about the candidate that are not in their CV. Output only what is asked, no preamble."},
+      {role:"user", content:prompt}
+    ],
+    temperature:0.4
+  });
+  return reply.choices[0].message.content.trim();
+}
+
+async function runGeneration(){
+  const genStatus = document.getElementById('genStatus');
+  const genProg = document.getElementById('genProgress');
+  const resultsArea = document.getElementById('resultsArea');
+  const steps = [
+    "Reading CV and job ad...",
+    "Scoring fit against the role...",
+    "Drafting tailored resume bullets...",
+    "Writing the cover letter...",
+    "Preparing common application answers..."
+  ];
+  let i=0;
+  genStatus.textContent = steps[0];
+  genProg.style.width = "10%";
+
+  try{
+    // 1. Match score + gaps
+    const scorePrompt = `CV:\n${state.cvText}\n\nJob ad:\n${state.jobText}\n\nGive a JSON object only, no markdown, with keys: score (0-100 integer, how well the CV fits this job), strengths (array of 3 short strings), gaps (array of 2-3 short strings, honest missing skills/experience). Output raw JSON only.`;
+    genProg.style.width = "25%"; genStatus.textContent = steps[1];
+    let scoreRaw = await chat(scorePrompt);
+    let scoreData;
+    try{ scoreData = JSON.parse(scoreRaw.replace(/```json|```/g,'').trim()); }
+    catch{ scoreData = {score:"—", strengths:[], gaps:[]}; }
+
+    // 2. Resume bullets
+    genProg.style.width = "50%"; genStatus.textContent = steps[2];
+    const bulletsPrompt = `CV:\n${state.cvText}\n\nJob ad:\n${state.jobText}\n\nWrite 5 tailored resume bullet points that reframe the candidate's REAL experience (do not invent anything) to match this job's priorities. Plain text, one bullet per line, start each with "- ".`;
+    const bullets = await chat(bulletsPrompt);
+
+    // 3. Cover letter
+    genProg.style.width = "70%"; genStatus.textContent = steps[3];
+    const letterPrompt = `CV:\n${state.cvText}\n\nJob ad:\n${state.jobText}\n\nWrite a concise, genuine 3-paragraph cover letter (under 250 words) for this candidate applying to this role. No placeholders like [Company Name] — extract the real company/role name from the job ad if present, otherwise write it generically without brackets. Plain text only.`;
+    const letter = await chat(letterPrompt);
+
+    // 4. Application Q&A
+    genProg.style.width = "90%"; genStatus.textContent = steps[4];
+    const qaPrompt = `CV:\n${state.cvText}\n\nJob ad:\n${state.jobText}\n\nWrite honest, concise answers (2-4 sentences each) to these common application questions, based only on the real CV:\n1. Why are you interested in this role?\n2. What makes you a strong fit?\n3. Describe a relevant achievement.\nFormat as plain text with the question then the answer.`;
+    const qa = await chat(qaPrompt);
+
+    genProg.style.width = "100%"; genStatus.textContent = "Done.";
+
+    resultsArea.innerHTML = `
+      <div class="card">
+        <div class="stamp-badge">How well you match</div>
+        <div class="match-score"><span class="num">${scoreData.score}</span><span class="label">/ 100 match</span></div>
+        <p style="font-size:13px; color:#555; margin-top:0;">Strengths</p>
+        <ul class="plain">${(scoreData.strengths||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
+        <p style="font-size:13px; color:#555;">Things you're missing</p>
+        <ul class="plain">${(scoreData.gaps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
+      </div>
+
+      <div class="card">
+        <h3>Tailored resume bullets</h3>
+        <div class="copy-block" id="block-bullets">${escapeHtml(bullets)}</div>
+        <button class="copy-btn" data-target="block-bullets">Copy</button>
+      </div>
+
+      <div class="card">
+        <h3>Cover letter</h3>
+        <div class="copy-block" id="block-letter">${escapeHtml(letter)}</div>
+        <button class="copy-btn" data-target="block-letter">Copy</button>
+      </div>
+
+      <div class="card">
+        <h3>Application question answers</h3>
+        <div class="copy-block" id="block-qa">${escapeHtml(qa)}</div>
+        <button class="copy-btn" data-target="block-qa">Copy</button>
+      </div>
+    `;
+    document.querySelectorAll('.copy-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const el = document.getElementById(btn.dataset.target);
+        navigator.clipboard.writeText(el.textContent);
+        btn.textContent = "Copied";
+        setTimeout(()=>btn.textContent="Copy", 1500);
+      };
+    });
+  }catch(err){
+    resultsArea.innerHTML = `<div class="status-line">Generation failed: ${err.message}</div>`;
+  }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
